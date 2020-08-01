@@ -25,6 +25,7 @@ type State = {
   roomState: RoomState;
   roomName: string;
   userName: string;
+  sessionId: string;
   members: {
     //All members of the room
     [id: string]: Member;
@@ -40,6 +41,7 @@ export const state: State = {
   roomState: RoomState.CHATTING,
   roomName: 'main',
   userName: '',
+  sessionId: '',
   members: {},
   connections: {},
 };
@@ -71,26 +73,78 @@ const api = (() => {
   };
 })();
 const actions = {
+  async templateAction({
+    state: { rooms: state },
+    actions: { rooms: actions },
+  }) {},
+  async updateStorage({
+    state: { rooms: state },
+    actions: { rooms: actions },
+    effects,
+  }) {
+    await effects.storage.saveSession('hootnet', {
+      room: state.roomName,
+      user: state.userName,
+      id: state.sessionId,
+    });
+  },
+  async updateFromStorage({
+    state: { rooms: state },
+    actions: { rooms: actions },
+    effects,
+  }) {
+    const hootState = effects.storage.getSession('hootnet');
+    console.log('hootstate', JSON.stringify(hootState));
+    actions.setUserName(hootState.user || '');
+    actions.setRoomName(hootState.room || '');
+    actions.setSessionId(hootState.id || '');
+  },
+  async setSessionId(
+    { state: { rooms: state }, actions: { rooms: actions } },
+    id
+  ) {
+    state.sessionId = id;
+  },
+  async getSessionId({ state: { rooms: state }, actions: { rooms: actions } }) {
+    if (!state.sessionId) {
+      actions.setSessionId('S-' + (await actions.nextSessionId()));
+      await actions.updateStorage();
+    }
+    return state.sessionId;
+  },
+  async nextSessionId({
+    state: { rooms: state },
+    actions: { rooms: actions },
+  }) {
+    const fb = actions.getFirebase();
+    const db = fb.firestore();
+    // Create a reference to the SF doc.
+    await db
+      .doc('root/root')
+      .get()
+      .then(doc => {
+        if (!doc.exists) {
+          db.doc('root/root').set({ sequence: 0 });
+        }
+      });
+    const docRef = db.doc('root/root');
+    return db
+      .runTransaction(transaction => {
+        return transaction.get(docRef).then(doc => {
+          const newSequence = doc.data().sequence + 1;
+          transaction.update(docRef, { sequence: newSequence });
+          return newSequence;
+        });
+      })
+      .then(sequence => {
+        console.log('transaction completed', sequence);
+        return sequence;
+      });
+  },
+
   async clickAction({ state: { rooms: state }, actions: { rooms: actions } }) {
     state.sequence = state.sequence + 1;
     console.log('clicky clicky');
-    // await actions.joinRoomByName({
-    //   room: 'main',
-    //   user: 'User-' + state.sequence,
-    // });
-    // await actions.getRoomSnapshot();
-    // if (state.sequene === 5) {
-    //   actions.deleteSnapshot()
-    //   await actions.joinRoomByName({
-    //     room: 'main',
-    //     user: ('User-' + state.sequence + 1)
-    //   });
-
-    //   await actions.joinRoomByName({
-    //     room: 'main',
-    //     user: ('User-' + state.sequence + 2)
-    //   });
-    // }
   },
 
   async deleteSnapshot({
@@ -105,15 +159,21 @@ const actions = {
     actions: { rooms: actions },
   }) {
     await actions.setRoomRef(`${state.roomName}`);
-    // await actions.rooms.getRoomSnapshot();
+    actions
+      .getRoomRef()
+      .collection('members')
+      .doc(state.sessionId)
+      .set({ user: state.userName });
+    await actions.getRoomSnapshot();
+    console.log(`added member ${state.userName} to ${state.roomName}`);
+  },
+  async leaveRoom({ state: { rooms: state }, actions: { rooms: actions } }) {
     actions
       .getRoomRef()
       .collection('members')
       .doc(state.userName)
-      .set({ user: state.userName });
-    console.log(`added member ${state.userName} to ${state.roomName}`);
+      .delete();
   },
-
   async setRoomRef({ state, actions }, roomId) {
     const fb = actions.rooms.getFirebase();
     const db = fb.firestore();
@@ -123,7 +183,8 @@ const actions = {
     return json(state.rooms.roomRef);
   },
   setRoomName({ state }, roomName) {
-    state.rooms.roomName = roomName;
+    // avoid feedback look from set location
+    if (state.rooms.roomName !== roomName) state.rooms.roomName = roomName;
   },
   setUserName({ state }, userName) {
     state.rooms.userName = userName;
@@ -142,7 +203,12 @@ const actions = {
           console.log('change');
           if (change.type === 'added') {
             let data = change.doc.data();
-            console.log(`got new member: ${JSON.stringify(data)}`);
+            state.members[change.doc.id] = data;
+            // console.log(
+            //   `got new member: ${change.doc.id} ${JSON.stringify(data)}`
+            // );
+          } else if (change.type === 'deleted') {
+            delete state.members[change.doc.id];
           }
         });
       });

@@ -1,28 +1,15 @@
 import React from 'react';
-import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
+import Box from '@material-ui/core/Box';
 import { makeStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
 import { CurrentModule } from '../CurrentModule';
 import { useApp } from '../../app';
 import Snackbar from '@material-ui/core/Snackbar';
 import Alert from '@material-ui/lab/Alert';
-const H1 = props => {
-  return (
-    <Typography align="center" variant="h1" {...props}>
-      {props.children}
-    </Typography>
-  );
-};
+import { useQueryState } from 'use-location-state';
+import { H1, H3 } from './Typography';
 
-const H2 = props => {
-  return (
-    <Typography align="center" variant="h2" {...props}>
-      {props.children}
-    </Typography>
-  );
-};
 const useStyles = makeStyles(theme => ({
   root: {
     '& .MuiTextField-root': {
@@ -34,14 +21,43 @@ const useStyles = makeStyles(theme => ({
 }));
 const FrontPage = () => {
   const classes = useStyles();
-  const { actions, state } = useApp();
+  const { actions, state, reaction } = useApp();
+  const [roomName, setRoomName] = useQueryState('room', 'main');
   const [open, setOpen] = React.useState(false);
   const [text, setText] = React.useState('');
+  // React.useEffect(() => {
+  //   actions.rooms.updateFromStorage()
+  // },[])
+  React.useEffect(() => {
+    actions.rooms.updateFromStorage();
+    actions.rooms.setRoomName(roomName);
+    // eslint-disable-next-line
+  }, []);
 
+  React.useEffect(() => {
+    const cleanup = reaction(
+      ({ rooms }) => rooms.roomName,
+      roomName => {
+        actions.rooms.updateStorage();
+        setRoomName(roomName);
+      }
+    );
+    window.addEventListener('beforeunload', function(e) {
+      delete e['returnValue'];
+      debugger;
+      actions.rooms.leaveRoom();
+    });
+    return () => {
+      console.log('cleanup');
+      cleanup();
+    };
+    // eslint-disable-next-line
+  }, []);
   const changeUser = event => {
     actions.rooms.setUserName(event.target.value);
+    actions.rooms.updateStorage();
   };
-  const onClick = () => {
+  const onClick = async () => {
     if (!state.rooms.roomName) {
       setText('Please enter a room name');
       setOpen(true);
@@ -49,7 +65,11 @@ const FrontPage = () => {
       setText('Please enter a user name');
       setOpen(true);
     } else {
+      const sequence = await actions.rooms.getSessionId();
+      setText(' sequence is ' + sequence);
+      setOpen(true);
       actions.rooms.joinRoomByName();
+      actions.setPage('chat');
     }
   };
   const handleClose = (event, reason) => {
@@ -65,6 +85,8 @@ const FrontPage = () => {
   return (
     <div style={{ textAlign: 'center', width: '100%' }}>
       <H1> HootNet </H1>
+      <H3> make music together </H3>
+
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         open={open}
