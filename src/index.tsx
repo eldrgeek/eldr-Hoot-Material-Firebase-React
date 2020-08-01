@@ -1,4 +1,4 @@
-import FrontPage from './js/components/Notifier';
+import FrontPage from './js/components/FrontPage';
 import { CurrentModule } from './js/CurrentModule';
 import './css/index.css';
 import './css/tailwind.css';
