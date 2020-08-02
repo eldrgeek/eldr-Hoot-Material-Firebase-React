@@ -8,6 +8,7 @@
     "@material-ui/lab": "4.0.0-alpha.56",
     "classnames": "^2.2.6",
     "firebase": "7.17.1",
+    "lodash": "4.17.19",
     "overmind": "latest",
     "overmind-react": "latest",
     "react": "^16.8.6",
