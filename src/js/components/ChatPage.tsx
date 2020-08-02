@@ -3,7 +3,22 @@ import { CurrentModule } from '../CurrentModule';
 import { useApp } from '../../app';
 import { H3 } from './Typography';
 import Button from '@material-ui/core/Button';
+import MoveableBox from './MoveableBox';
+const MoveableContents = () => {
+  const { state, actions } = useApp();
 
+  return (
+    <React.Fragment>
+      <video
+        width={'100px'}
+        ref={el => {
+          if (el) el.srcObject = actions.streams.getLocalStream();
+        }}
+        autoPlay
+      />
+    </React.Fragment>
+  );
+};
 const ChatPage = () => {
   const { state, actions } = useApp();
   React.useEffect(() => {
@@ -20,14 +35,7 @@ const ChatPage = () => {
         const member = state.rooms.members[key];
         return (
           <div key={key}>
-            {member.user}
-            <video
-              width={'100px'}
-              ref={el => {
-                if (el) el.srcObject = actions.streams.getLocalStream();
-              }}
-              autoPlay
-            />
+            <MoveableBox pos={index} Contents={() => <MoveableContents />} />
           </div>
         );
       })}
