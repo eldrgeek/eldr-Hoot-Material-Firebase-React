@@ -44,11 +44,9 @@ const FrontPage = () => {
     );
     window.addEventListener('beforeunload', function(e) {
       delete e['returnValue'];
-      debugger;
       actions.rooms.leaveRoom();
     });
     return () => {
-      console.log('cleanup');
       cleanup();
     };
     // eslint-disable-next-line
@@ -69,7 +67,7 @@ const FrontPage = () => {
       setText(' sequence is ' + sequence);
       setOpen(true);
       actions.rooms.joinRoomByName();
-      actions.setPage('chat');
+      actions.setPage('streamTest');
     }
   };
   const handleClose = (event, reason) => {

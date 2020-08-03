@@ -8,6 +8,11 @@ import { createOvermind } from 'overmind';
 import { merge, namespaced } from 'overmind/config';
 
 import rooms from './rooms';
+import notifier from './notifier';
+import streams from './streams';
+import caller from './caller';
+import callee from './callee';
+
 export const config = {
   onInitialize,
   state,
@@ -21,6 +26,10 @@ const mergedConfig = merge(
   config,
   namespaced({
     rooms,
+    notifier,
+    streams,
+    caller,
+    callee,
   })
 );
 const initialize = () => {

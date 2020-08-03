@@ -4,15 +4,27 @@ import { useApp } from '../../app';
 import FrontPage from './FrontPage';
 import ChatPage from './ChatPage';
 import CascadePage from './CascadePage';
+import StreamTestPage from './StreamTestPage';
+import { H3 } from './Typography';
+
+const pages = {
+  front: <FrontPage />,
+  chat: <ChatPage />,
+  cascade: <CascadePage />,
+  streamtest: <StreamTestPage />,
+};
 const Main = () => {
   const { state } = useApp();
-  return state.page === 'front' ? (
-    <FrontPage />
-  ) : state.page === 'chat' ? (
-    <ChatPage />
-  ) : (
-    <CascadePage />
-  );
+  if (!pages[state.page]) {
+    return (
+      <div>
+        <H3>Invalid Page:</H3>
+        <H3> '{state.page}' </H3>
+      </div>
+    );
+  } else {
+    return pages[state.page];
+  }
 };
 export default Main;
 CurrentModule(Main);

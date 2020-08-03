@@ -5,8 +5,7 @@ import { H3 } from './Typography';
 import Button from '@material-ui/core/Button';
 import MoveableBox from './MoveableBox';
 const MoveableContents = () => {
-  const { state, actions } = useApp();
-
+  const { actions } = useApp();
   return (
     <React.Fragment>
       <video
@@ -26,13 +25,13 @@ const ChatPage = () => {
       actions.streams.openUserMedia();
     }
     //eslint-disable-next-line
-  }, []);
+  }, [actions.streams.localStream]);
 
   return (
     <div>
       <H3> {state.rooms.roomName} </H3>
       {Object.keys(state.rooms.members).map((key, index) => {
-        const member = state.rooms.members[key];
+        // const member = state.rooms.members[key];
         return (
           <div key={key}>
             <MoveableBox pos={index} Contents={() => <MoveableContents />} />
@@ -43,8 +42,9 @@ const ChatPage = () => {
         variant="contained"
         color="primary"
         component="span"
-        onClick={() => {
-          actions.rooms.leaveRoom();
+        onClick={async () => {
+          await actions.rooms.leaveRoom();
+          actions.streams.closeUserMedia();
           actions.setPage('front');
         }}
       >
