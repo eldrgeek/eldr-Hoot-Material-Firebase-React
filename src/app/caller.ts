@@ -1,19 +1,15 @@
 import * as firebase from 'firebase';
 import { json, derived } from 'overmind';
-
+const diag = false;
 const state = {
   initialized: false,
   connectionName: 'test',
   localStream: null,
-  remoteStream: null,
+  remoteStream: {},
   enablePrompt: derived(state => (state.localStream ? 'Hangup' : 'Open')),
-  connectionId: null,
-  connectionRef: null,
-  peerConnections: {
-    test: {
-      peerConnection: null,
-    },
-  },
+  connectionId: {},
+  connectionRef: {},
+  peerConnection: {},
 };
 
 const firebaseConfig = {
@@ -72,7 +68,6 @@ const actions = {
       audio: true,
     });
     state.caller.localStream = stream;
-    state.caller.remoteStream = new MediaStream();
   },
   async closeUserMedia({
     state: { caller: state },
@@ -85,201 +80,208 @@ const actions = {
     });
     state.localMedia = null;
   },
-  async createConnection({ actions }) {
-    await actions.caller.setConnectionRef();
-    await actions.caller.createPeerConnection();
-    await actions.caller.addLocalTracks();
-    await actions.caller.setupLocalCandidates();
-    actions.caller.setupPeerListeners();
-    actions.caller.setupSnapshotListener();
-    actions.caller.setupCalleeCandidates();
+  async createConnection({ state, actions }, { connectionId, instance }) {
+    state.caller.remoteStream[instance] = new MediaStream();
+
+    await actions.caller.setConnectionRef({ connectionId, instance });
+    await actions.caller.createPeerConnection(instance);
+    await actions.caller.addLocalTracks(instance);
+    await actions.caller.setupLocalCandidates(instance);
+    actions.caller.setupPeerListeners(instance);
+    actions.caller.setupSnapshotListener(instance);
+    actions.caller.setupCalleeCandidates(instance);
   },
-  async joinConnectionById({ actions }, connectionId) {
-    actions.caller.setConnectionId(connectionId);
-    await actions.caller.setConnectionRef(`${connectionId}`);
-    await actions.caller.getConnectionSnapshot();
+  // async joinConnectionById({ actions }, connectionId) {
+  //   actions.caller.setConnectionId(connectionId);
+  //   await actions.caller.setConnectionRef(`${connectionId}`);
+  //   await actions.caller.getConnectionSnapshot();
+  // },
+  // setConnectionId({ state }, connectionId) {
+  //   state.caller.connectionId = connectionId;
+  // },
+  getConnectionId({ state }, instance) {
+    return json(state.caller.connectionId[instance]);
   },
-  setConnectionId({ state }, connectionId) {
-    state.caller.connectionId = connectionId;
-  },
-  getConnectionId({ state }) {
-    return json(state.caller.connectionId);
-  },
-  async hangUp({ actions }) {
+  async hangUp({ actions }, instance) {
     // const tracks = document.querySelector("#localVideo").srcObject.getTracks();
 
     actions.caller.closeUserMedia();
-    if (actions.caller.getRemoteStream()) {
+    if (actions.caller.getRemoteStream(instance)) {
       actions.caller
-        .getRemoteStream()
+        .getRemoteStream(instance)
         .getTracks()
         .forEach(track => track.stop());
     }
 
-    if (actions.caller.getPeerConnection()) {
-      actions.caller.getPeerConnection().close();
+    if (actions.caller.getPeerConnection(instance)) {
+      actions.caller.getPeerConnection(instance).close();
     }
-    if (actions.caller.getConnectionId()) {
-      await actions.caller.setConnectionRef();
-      const calleeCandidates = await actions.caller
-        .getConnectionRef()
-        .collection('calleeCandidates')
-        .get();
-      calleeCandidates.forEach(async candidate => {
-        await candidate.ref.delete();
-      });
-      const callerCandidates = await actions.caller
-        .getConnectionRef()
-        .collection('callerCandidates')
-        .get();
-      callerCandidates.forEach(async candidate => {
-        await candidate.ref.delete();
-      });
-      await actions.caller.getConnectionRef().delete();
-    }
+    // if (actions.caller.getConnectionId()) {
+    //   await actions.caller.setConnectionRef();
+    //   const calleeCandidates = await actions.caller
+    //     .getConnectionRef()
+    //     .collection('calleeCandidates')
+    //     .get();
+    //   calleeCandidates.forEach(async candidate => {
+    //     await candidate.ref.delete();
+    //   });
+    //   const callerCandidates = await actions.caller
+    //     .getConnectionRef()
+    //     .collection('callerCandidates')
+    //     .get();
+    //   callerCandidates.forEach(async candidate => {
+    //     await candidate.ref.delete();
+    //   });
+    // }
+    await actions.caller.getConnectionRef(instance).delete();
   },
-  async getConnectionSnapshot({ actions }) {
-    const connectionSnapshot = await actions.caller.getConnectionRef().get();
-    console.log('Got connection:', connectionSnapshot.exists);
+  // async getConnectionSnapshot({ actions }) {
+  //   const connectionSnapshot = await actions.caller.getConnectionRef().get();
+  //   if(diag) console.log('Got connection:', connectionSnapshot.exists);
 
-    if (connectionSnapshot.exists) {
-      // console.log("Create PeerConnection with configuration: ", configuration);
-      actions.caller.createPeerConnection();
+  //   if (connectionSnapshot.exists) {
+  //     // if(diag) console.log("Create PeerConnection with configuration: ", configuration);
+  //     actions.caller.createPeerConnection();
 
-      // peerConnection = new RTCPeerConnection(configuration);
-      // registerPeerConnectionListeners();
-      actions.caller.addLocalTracks();
+  //     // peerConnection = new RTCPeerConnection(configuration);
+  //     // registerPeerConnectionListeners();
+  //     actions.caller.addLocalTracks();
 
-      // Code for collecting ICE candidates below
-      actions.caller.addCalleeCandidateCollection();
+  //     // Code for collecting ICE candidates below
+  //     actions.caller.addCalleeCandidateCollection();
 
-      const calleeCandidatesCollection = actions.caller
-        .getConnectionRef()
-        .collection('calleeCandidates');
+  //     const calleeCandidatesCollection = actions.caller
+  //       .getConnectionRef()
+  //       .collection('calleeCandidates');
 
-      actions.caller
-        .getPeerConnection()
-        .addEventListener('icecandidate', event => {
-          if (!event.candidate) {
-            console.log('Got final candidate!');
-            return;
-          }
-          console.log('Got candidate: ', event.candidate);
-          calleeCandidatesCollection.add(event.candidate.toJSON());
-        });
-      // Code for collecting ICE candidates above
+  //     actions.caller
+  //       .getPeerConnection()
+  //       .addEventListener('icecandidate', event => {
+  //         if (!event.candidate) {
+  //           if(diag) console.log('Got final candidate!');
+  //           return;
+  //         }
+  //         if(diag) console.log('Got candidate: ', event.candidate);
+  //         calleeCandidatesCollection.add(event.candidate.toJSON());
+  //       });
+  //     // Code for collecting ICE candidates above
 
-      actions.caller.getPeerConnection().addEventListener('track', event => {
-        console.log('Got remote track:', event.streams[0]);
-        event.streams[0].getTracks().forEach(track => {
-          console.log('Add a track to the remoteStream:', track);
-          actions.caller.getRemoteStream().addTrack(track);
-        });
-      });
+  //     actions.caller.getPeerConnection().addEventListener('track', event => {
+  //       if(diag) console.log('Got remote track:', event.streams[0]);
+  //       event.streams[0].getTracks().forEach(track => {
+  //         if(diag) console.log('Add a track to the remoteStream:', track);
+  //         actions.caller.getRemoteStream().addTrack(track);
+  //       });
+  //     });
 
-      // Code for creating SDP answer below
-      const offer = connectionSnapshot.data().offer;
-      console.log('Got offer:', offer);
-      await actions.caller
-        .getPeerConnection()
-        .setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await actions.caller.getPeerConnection().createAnswer();
-      console.log('Created answer:', answer);
-      await actions.caller.getPeerConnection().setLocalDescription(answer);
+  //     // Code for creating SDP answer below
+  //     const offer = connectionSnapshot.data().offer;
+  //     if(diag) console.log('Got offer:', offer);
+  //     await actions.caller
+  //       .getPeerConnection()
+  //       .setRemoteDescription(new RTCSessionDescription(offer));
+  //     const answer = await actions.caller.getPeerConnection().createAnswer();
+  //     if(diag) console.log('Created answer:', answer);
+  //     await actions.caller.getPeerConnection().setLocalDescription(answer);
 
-      const connectionWithAnswer = {
-        answer: {
-          type: answer.type,
-          sdp: answer.sdp,
-        },
-      };
-      await actions.caller.getConnectionRef().update(connectionWithAnswer);
-      // Code for creating SDP answer above
+  //     const connectionWithAnswer = {
+  //       answer: {
+  //         type: answer.type,
+  //         sdp: answer.sdp,
+  //       },
+  //     };
+  //     await actions.caller.getConnectionRef().update(connectionWithAnswer);
+  //     // Code for creating SDP answer above
 
-      // Listening for remote ICE candidates below
-      actions.caller
-        .getConnectionRef()
-        .collection('callerCandidates')
-        .onSnapshot(snapshot => {
-          snapshot.docChanges().forEach(async change => {
-            if (change.type === 'added') {
-              let data = change.doc.data();
-              console.log(
-                `Got new remote ICE candidate: ${JSON.stringify(data)}`
-              );
-              await actions.caller
-                .getPeerConnection()
-                .addIceCandidate(new RTCIceCandidate(data));
-            }
-          });
-        });
-    }
-  },
-  setupCalleeCandidates({ actions }) {
+  //     // Listening for remote ICE candidates below
+  //     actions.caller
+  //       .getConnectionRef()
+  //       .collection('callerCandidates')
+  //       .onSnapshot(snapshot => {
+  //         snapshot.docChanges().forEach(async change => {
+  //           if (change.type === 'added') {
+  //             let data = change.doc.data();
+  //             if(diag) console.log(
+  //               `Got new remote ICE candidate: ${JSON.stringify(data)}`
+  //             );
+  //             await actions.caller
+  //               .getPeerConnection()
+  //               .addIceCandidate(new RTCIceCandidate(data));
+  //           }
+  //         });
+  //       });
+  //   }
+  // },
+  setupCalleeCandidates({ actions }, instance) {
     actions.caller
-      .getConnectionRef()
+      .getConnectionRef(instance)
       .collection('calleeCandidates')
       .onSnapshot(snapshot => {
         snapshot.docChanges().forEach(async change => {
           if (change.type === 'added') {
             let data = change.doc.data();
-            console.log(
-              `Got new remote ICE candidate: ${JSON.stringify(data)}`
-            );
+            if (diag)
+              console.log(
+                `Got new remote ICE candidate: ${JSON.stringify(data)}`
+              );
             await actions.caller
-              .getPeerConnection()
+              .getPeerConnection(instance)
               .addIceCandidate(new RTCIceCandidate(data));
           }
         });
       });
   },
-  setupSnapshotListener({ actions }) {
+  setupSnapshotListener({ actions }, instance) {
     // Listening for remote session description below
-    actions.caller.getConnectionRef().onSnapshot(async snapshot => {
+    actions.caller.getConnectionRef(instance).onSnapshot(async snapshot => {
       const data = snapshot.data();
       if (
-        !actions.caller.getPeerConnection().currentRemoteDescription &&
+        !actions.caller.getPeerConnection(instance).currentRemoteDescription &&
         data &&
         data.answer
       ) {
-        console.log('Got remote description: ', data.answer);
+        if (diag) console.log('Got remote description: ', data.answer);
         const rtcSessionDescription = new RTCSessionDescription(data.answer);
         await actions.caller
-          .getPeerConnection()
+          .getPeerConnection(instance)
           .setRemoteDescription(rtcSessionDescription);
       }
     });
   },
-  setupPeerListeners({ actions }) {
-    actions.caller.getPeerConnection().addEventListener('track', event => {
-      console.log('Got remote track:', event.streams[0]);
-      event.streams[0].getTracks().forEach(track => {
-        console.log('Add a track to the remoteStream:', track);
-        actions.caller.getRemoteStream().addTrack(track);
+  setupPeerListeners({ actions }, instance) {
+    actions.caller
+      .getPeerConnection(instance)
+      .addEventListener('track', event => {
+        if (diag) console.log('Got remote track:', event.streams[0]);
+        event.streams[0].getTracks().forEach(track => {
+          if (diag) console.log('Add a track to the remoteStream:', track);
+          actions.caller.getRemoteStream(instance).addTrack(track);
+        });
       });
-    });
   },
-  async setupLocalCandidates({ actions }) {
+  async setupLocalCandidates({ actions }, instance) {
     const callerCandidatesCollection = await actions.caller
-      .getConnectionRef()
+      .getConnectionRef(instance)
       .collection('callerCandidates');
 
     actions.caller
-      .getPeerConnection()
+      .getPeerConnection(instance)
       .addEventListener('icecandidate', event => {
         if (!event.candidate) {
-          // console.log('Got final candidate!');
+          // if(diag) console.log('Got final candidate!');
           return;
         }
-        // console.log('Got candidate: ', event.candidate);
+        // if(diag) console.log('Got candidate: ', event.candidate);
         callerCandidatesCollection.add(event.candidate.toJSON());
       });
     // Code for collecting ICE candidates above
 
     // Code for creating a room below
-    const offer = await actions.caller.getPeerConnection().createOffer();
-    await actions.caller.getPeerConnection().setLocalDescription(offer);
-    // console.log('Created offer:', offer);
+    const offer = await actions.caller
+      .getPeerConnection(instance)
+      .createOffer();
+    await actions.caller.getPeerConnection(instance).setLocalDescription(offer);
+    // if(diag) console.log('Created offer:', offer);
 
     const connectionWithOffer = {
       offer: {
@@ -287,13 +289,14 @@ const actions = {
         sdp: offer.sdp,
       },
     };
-    await actions.caller.getConnectionRef().set(connectionWithOffer);
+    await actions.caller.getConnectionRef(instance).set(connectionWithOffer);
     // connectionId = actions.caller.getConnectionRef().id;
-    console.log(
-      `New connection created with SDP offer. connection ID: ${
-        actions.caller.getConnectionRef().id
-      }`
-    );
+    if (diag)
+      console.log(
+        `New connection created with SDP offer. connection ID: ${
+          actions.caller.getConnectionRef(instance).id
+        }`
+      );
   },
   async setInitialized({ state }, firebase) {
     // debugger; //state.caller.firebase = firebase;
@@ -302,32 +305,35 @@ const actions = {
   getFirebase({ state }) {
     return firebase;
   },
-  async setConnectionRef({ state, actions }, connectionId) {
-    console.log('Set connectionRef');
+  async setConnectionRef({ state, actions }, { connectionId, instance }) {
+    if (diag) console.log('Set connectionRef');
     const fb = actions.caller.getFirebase();
     const db = fb.firestore();
     if (connectionId) {
-      state.caller.connectionRef = await db
+      state.caller.connectionRef[instance] = await db
         .collection('connections')
         .doc(connectionId);
     } else {
-      state.caller.connectionRef = await db.collection('connections').doc();
+      state.caller.connectionRef[instance] = await db
+        .collection('connections')
+        .doc();
     }
   },
-  getConnectionRef({ state }) {
-    return json(state.caller.connectionRef);
+  getConnectionRef({ state }, instance) {
+    return json(state.caller.connectionRef[instance]);
   },
 
-  getLocalStream({ state }) {
+  getLocalStream({ state, actions }) {
+    actions.diag(json(state.caller.localStream));
     return json(state.caller.localStream);
   },
-  getRemoteStream({ state }) {
-    return json(state.caller.remoteStream);
+  getRemoteStream({ state }, instance) {
+    return json(state.caller.remoteStream[instance]);
   },
-  getPeerConnection({ state }) {
-    return json(state.caller.peerConnection);
+  getPeerConnection({ state }, instance) {
+    return json(state.caller.peerConnection[instance]);
   },
-  createPeerConnection({ state }) {
+  createPeerConnection({ state }, instance) {
     const configuration = {
       iceServers: [
         {
@@ -339,15 +345,17 @@ const actions = {
       ],
       iceCandidatePoolSize: 10,
     };
-    state.caller.peerConnection = new RTCPeerConnection(configuration);
+    state.caller.peerConnection[instance] = new RTCPeerConnection(
+      configuration
+    );
   },
-  addLocalTracks({ state, actions }) {
+  addLocalTracks({ state, actions }, instance) {
     actions.caller
       .getLocalStream()
       .getTracks()
       .forEach(track => {
         actions.caller
-          .getPeerConnection()
+          .getPeerConnection(instance)
           .addTrack(track, actions.caller.getLocalStream());
       });
   },
@@ -358,10 +366,10 @@ const actions = {
     //     .getPeerConnection()
     //     .addEventListener("icecandidate", event => {
     //       if (!event.candidate) {
-    //         console.log("Got final candidate!");
+    //         if(diag) console.log("Got final candidate!");
     //         return;
     //       }
-    //       console.log("Got candidate: ", event.candidate);
+    //       if(diag) console.log("Got candidate: ", event.candidate);
     //       calleeCandidatesCollection.add(event.candidate.toJSON());
     //     });
   },
@@ -372,9 +380,9 @@ const effects = {
 };
 
 const onInitialize = context => {
-  console.log('context in connection', context);
+  if (diag) console.log('context in connection', context);
   // context.effects.streams.api.initialize(context);
-  console.log('init in connection complete');
+  if (diag) console.log('init in connection complete');
 };
 
 const config = {
