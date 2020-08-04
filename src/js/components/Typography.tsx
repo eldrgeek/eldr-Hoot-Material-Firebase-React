@@ -18,6 +18,11 @@ export const H2 = props => {
   );
 };
 export const H3 = props => {
+  React.useEffect(() => {
+    const tailwind = props.tailwind;
+    if (tailwind) {
+    }
+  });
   return (
     <Typography align="center" variant="h3" {...props}>
       {props.children}

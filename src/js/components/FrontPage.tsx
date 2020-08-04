@@ -67,7 +67,7 @@ const FrontPage = () => {
       setText(' sequence is ' + sequence);
       setOpen(true);
       actions.rooms.joinRoomByName();
-      actions.setPage('streamTest');
+      actions.setPage('chat');
     }
   };
   const handleClose = (event, reason) => {
