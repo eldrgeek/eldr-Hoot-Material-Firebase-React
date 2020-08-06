@@ -1,4 +1,4 @@
-import { derived } from 'overmind';
+// import { derived } from 'overmind';
 
 export enum Filter {
   ALL = 'all',
@@ -14,45 +14,16 @@ export type Todo = {
 
 type State = {
   firebaseInitialized: boolean;
-  filter: Filter;
-  newTodoTitle: string;
-  todos: {
-    [id: string]: Todo;
-  };
-  editingTodoId: string | null;
-  editingTodoTitle: string;
-  currentTodos: Todo[];
-  activeTodoCount: number;
-  hasCompletedTodos: boolean;
-  isAllTodosChecked: boolean;
+  page: string;
+  diag: string;
+  debugPanel: boolean;
+  diags: Array<string>;
 };
 
 export const state: State = {
   firebaseInitialized: false,
-  filter: Filter.ALL,
-  newTodoTitle: '',
-  todos: {},
-  editingTodoId: null,
-  editingTodoTitle: '',
-  currentTodos: derived(({ todos, filter }: State) => {
-    return Object.values(todos).filter(todo => {
-      switch (filter) {
-        case 'active':
-          return !todo.completed;
-        case 'completed':
-          return todo.completed;
-        default:
-          return true;
-      }
-    });
-  }),
-  activeTodoCount: derived(({ todos }: State) => {
-    return Object.values(todos).filter(todo => !todo.completed).length;
-  }),
-  hasCompletedTodos: derived(({ todos }: State) => {
-    return Object.values(todos).some(todo => todo.completed);
-  }),
-  isAllTodosChecked: derived(({ currentTodos }: State) => {
-    return currentTodos.every(todo => todo.completed);
-  }),
+  debugPanel: true,
+  page: 'front',
+  diag: '',
+  diags: [],
 };

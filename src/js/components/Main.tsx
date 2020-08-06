@@ -3,6 +3,7 @@ import { CurrentModule } from '../CurrentModule';
 import { useApp } from '../../app';
 import FrontPage from './FrontPage';
 import ChatPage from './ChatPage';
+import DebugPanel from './widgets/DebugPanel';
 import CascadePage from './CascadePage';
 import StreamTestPage from './StreamTestPage';
 import { H3 } from './Typography';
@@ -23,7 +24,12 @@ const Main = () => {
       </div>
     );
   } else {
-    return pages[state.page];
+    return (
+      <React.Fragment>
+        {pages[state.page]}
+        <DebugPanel />
+      </React.Fragment>
+    );
   }
 };
 export default Main;
