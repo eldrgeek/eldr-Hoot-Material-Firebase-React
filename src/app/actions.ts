@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Action } from 'overmind';
+import { Action, json } from 'overmind';
+//Update actions
 const actions = {
   setFirebaseInitialized({ state }) {
     console.log('SETFBINIT Action');
@@ -10,8 +11,12 @@ const actions = {
     state.page = page;
   },
   diag({ state }, result) {
+    if (result && typeof result === 'object') result = result.result;
     state.diag = result;
-    setTimeout(() => state.diags.push(result));
+    state.diags.push('fooo' + state.diags.length);
+    // setTimeout(() => state.diags.push("fooo"));
+
+    // setTimeout(() => state.diags.push(json(result)));
   },
   invoke({ state }, args) {
     if (typeof args === 'object') {

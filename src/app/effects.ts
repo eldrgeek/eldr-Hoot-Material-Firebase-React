@@ -1,12 +1,17 @@
 // import page from 'page';
-import { Todo } from './state';
-
+//update effects
 export const storage = {
-  saveTodos(todos: { [id: string]: Todo }) {
-    localStorage.setItem('todos', JSON.stringify(todos));
+  saveLocal(key: string, data: { [id: string]: any }) {
+    localStorage.setItem(key, JSON.stringify(data));
   },
-  getTodos(): { [id: string]: Todo } {
-    return JSON.parse(localStorage.getItem('todos') || '{}');
+  getLocal(key: string): { [id: string]: any } {
+    return JSON.parse(localStorage.getItem(key) || '{}');
+  },
+  saveSession(key: string, data: { [id: string]: any }) {
+    sessionStorage.setItem(key, JSON.stringify(data));
+  },
+  getSession(key: string): { [id: string]: any } {
+    return JSON.parse(sessionStorage.getItem(key) || '{}');
   },
 };
 

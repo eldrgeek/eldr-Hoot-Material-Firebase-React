@@ -62,25 +62,25 @@ const actions = {
       actions.openUserMedia();
     }
   },
-  async openUserMedia({ state }) {
+  async openUserMedia({ state }, { from }) {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
     });
     state.caller.localStream = stream;
   },
-  async closeUserMedia({
-    state: { caller: state },
-    actions: { caller: actions },
-  }) {
-    const stream = actions.getLocalStream();
+  async closeUserMedia(
+    { state: { caller: state }, actions: { caller: actions } },
+    { from }
+  ) {
+    const stream = actions.getLocalStream({ from });
     const tracks = stream.getTracks();
     tracks.forEach(track => {
       track.stop();
     });
     state.localMedia = null;
   },
-  async createConnection({ state, actions }, { connectionId, instance }) {
+  async createConnection({ state, actions }, { from, connectionId, instance }) {
     state.caller.remoteStream[instance] = new MediaStream();
 
     await actions.caller.setConnectionRef({ connectionId, instance });
@@ -100,9 +100,11 @@ const actions = {
   //   state.caller.connectionId = connectionId;
   // },
   getConnectionId({ state }, instance) {
+    if (typeof instance === 'object') instance = instance.instance;
     return json(state.caller.connectionId[instance]);
   },
   async hangUp({ actions }, instance) {
+    if (typeof instance === 'object') instance = instance.instance;
     // const tracks = document.querySelector("#localVideo").srcObject.getTracks();
 
     actions.caller.closeUserMedia();
@@ -320,6 +322,7 @@ const actions = {
     }
   },
   getConnectionRef({ state }, instance) {
+    if (typeof instance === 'object') instance = instance.instance;
     return json(state.caller.connectionRef[instance]);
   },
 
@@ -328,6 +331,7 @@ const actions = {
     return json(state.caller.localStream);
   },
   getRemoteStream({ state }, instance) {
+    if (typeof instance === 'object') instance = instance.instance;
     return json(state.caller.remoteStream[instance]);
   },
   getPeerConnection({ state }, instance) {
@@ -350,14 +354,11 @@ const actions = {
     );
   },
   addLocalTracks({ state, actions }, instance) {
-    actions.caller
-      .getLocalStream()
-      .getTracks()
-      .forEach(track => {
-        actions.caller
-          .getPeerConnection(instance)
-          .addTrack(track, actions.caller.getLocalStream());
-      });
+    const peerConnection = actions.caller.getPeerConnection(instance);
+    const localStream = actions.caller.getLocalStream();
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
   },
 
   addCalleeCandidateCollection({ state, actions }) {

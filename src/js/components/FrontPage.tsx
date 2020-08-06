@@ -9,7 +9,7 @@ import Snackbar from '@material-ui/core/Snackbar';
 import Alert from '@material-ui/lab/Alert';
 import { useQueryState } from 'use-location-state';
 import { H1, H3 } from './Typography';
-
+const from = 'frontPage';
 const useStyles = makeStyles(theme => ({
   root: {
     '& .MuiTextField-root': {
@@ -29,8 +29,8 @@ const FrontPage = () => {
   //   actions.rooms.updateFromStorage()
   // },[])
   React.useEffect(() => {
-    actions.rooms.updateFromStorage();
-    actions.rooms.setRoomName(roomName);
+    actions.rooms.updateFromStorage({ from });
+    actions.rooms.setRoomName({ from, roomName });
     // eslint-disable-next-line
   }, []);
 
@@ -38,13 +38,13 @@ const FrontPage = () => {
     const cleanup = reaction(
       ({ rooms }) => rooms.roomName,
       roomName => {
-        actions.rooms.updateStorage();
+        actions.rooms.updateStorage({ from });
         setRoomName(roomName);
       }
     );
     window.addEventListener('beforeunload', function(e) {
       delete e['returnValue'];
-      actions.rooms.leaveRoom();
+      actions.rooms.leaveRoom({ from: 'FrontPage before Unloada' });
     });
     return () => {
       cleanup();
@@ -52,8 +52,8 @@ const FrontPage = () => {
     // eslint-disable-next-line
   }, []);
   const changeUser = event => {
-    actions.rooms.setUserName(event.target.value);
-    actions.rooms.updateStorage();
+    actions.rooms.setUserName({ from, userName: event.target.value });
+    actions.rooms.updateStorage({ from });
   };
   const onClick = async () => {
     if (!state.rooms.roomName) {
@@ -63,11 +63,11 @@ const FrontPage = () => {
       setText('Please enter a user name');
       setOpen(true);
     } else {
-      const sequence = await actions.rooms.getSessionId();
+      const sequence = await actions.rooms.getSessionId({ from });
       setText(' sequence is ' + sequence);
       setOpen(true);
-      actions.rooms.joinRoomByName();
-      actions.setPage('chat');
+      actions.rooms.joinRoomByName({ from });
+      actions.setPage({ from, page: 'streamtest' });
     }
   };
   const handleClose = (event, reason) => {
@@ -78,7 +78,7 @@ const FrontPage = () => {
   };
 
   const changeRoom = event => {
-    actions.rooms.setRoomName(event.target.value);
+    actions.rooms.setRoomName({ from, roomName: event.target.value });
   };
   return (
     <div style={{ textAlign: 'center', width: '100%' }}>
