@@ -122,21 +122,23 @@ const actions = {
     await db
       .doc('root/root')
       .get()
-      .then(doc => {
+      .then((doc) => {
         if (!doc.exists) {
           db.doc('root/root').set({ sequence: 0 });
         }
       });
     const docRef = db.doc('root/root');
     return db
-      .runTransaction(transaction => {
-        return transaction.get(docRef).then(doc => {
+      .runTransaction((transaction) => {
+        return transaction.get(docRef).then((doc) => {
+          debugger;
+          console.log('Doc', doc.exists, doc.data());
           const newSequence = doc.data().sequence + 1;
           transaction.update(docRef, { sequence: newSequence });
           return newSequence;
         });
       })
-      .then(sequence => {
+      .then((sequence) => {
         console.log('transaction completed', sequence);
         return sequence;
       });
@@ -168,11 +170,7 @@ const actions = {
     console.log(`added member ${state.userName} to ${state.roomName}`);
   },
   async leaveRoom({ state: { rooms: state }, actions: { rooms: actions } }) {
-    actions
-      .getRoomRef()
-      .collection('members')
-      .doc(state.userName)
-      .delete();
+    actions.getRoomRef().collection('members').doc(state.userName).delete();
   },
   async setRoomRef({ state, actions }, roomId) {
     const fb = actions.rooms.getFirebase();
@@ -183,10 +181,13 @@ const actions = {
     return json(state.rooms.roomRef);
   },
   setRoomName({ state }, roomName) {
+    if (typeof roomName === 'object') roomName = roomName.roomName;
     // avoid feedback look from set location
     if (state.rooms.roomName !== roomName) state.rooms.roomName = roomName;
   },
   setUserName({ state }, userName) {
+    if (typeof userName === 'object') userName = userName.userName;
+
     state.rooms.userName = userName;
   },
 
@@ -198,8 +199,8 @@ const actions = {
     state.snapshot = actions
       .getRoomRef()
       .collection('members')
-      .onSnapshot(snapshot => {
-        snapshot.docChanges().forEach(async change => {
+      .onSnapshot((snapshot) => {
+        snapshot.docChanges().forEach(async (change) => {
           console.log('change');
           if (change.type === 'added') {
             let data = change.doc.data();
