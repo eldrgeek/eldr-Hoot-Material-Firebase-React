@@ -17,6 +17,7 @@ export type Connection = {
 };
 export type Member = {
   id: string;
+  connections: Array<string>;
 };
 
 type State = {
@@ -26,13 +27,11 @@ type State = {
   roomName: string;
   userName: string;
   sessionId: string;
+  addedConnections: Array<string>;
+  removedConnections: Array<string>;
   members: {
     //All members of the room
     [id: string]: Member;
-  };
-  connections: {
-    //connections for this member
-    [id: string]: Connection;
   };
 };
 export const state: State = {
@@ -42,6 +41,8 @@ export const state: State = {
   roomName: 'main',
   userName: '',
   sessionId: '',
+  addedConnections: [],
+  removedConnections: [],
   members: {},
   connections: {},
 };
@@ -116,6 +117,18 @@ const actions = {
     state: { rooms: state },
     actions: { rooms: actions },
   }) {
+    return await actions.nextGenericId('roomSequence');
+  },
+  async nextConnectionId({
+    state: { rooms: state },
+    actions: { rooms: actions },
+  }) {
+    return await actions.nextGenericId('connectionSequence');
+  },
+  async nextGenericId(
+    { state: { rooms: state }, actions: { rooms: actions } },
+    attribute
+  ) {
     const fb = actions.getFirebase();
     const db = fb.firestore();
     // Create a reference to the SF doc.
@@ -124,17 +137,18 @@ const actions = {
       .get()
       .then((doc) => {
         if (!doc.exists) {
-          db.doc('root/root').set({ sequence: 0 });
+          db.doc('root/root').set({
+            roomSequence: 0,
+            connectionSequence: 0,
+          });
         }
       });
     const docRef = db.doc('root/root');
     return db
       .runTransaction((transaction) => {
         return transaction.get(docRef).then((doc) => {
-          debugger;
-          console.log('Doc', doc.exists, doc.data());
-          const newSequence = doc.data().sequence + 1;
-          transaction.update(docRef, { sequence: newSequence });
+          const newSequence = (doc.data()[attribute] || 0) + 1;
+          transaction.update(docRef, { [attribute]: newSequence });
           return newSequence;
         });
       })
@@ -161,16 +175,25 @@ const actions = {
     actions: { rooms: actions },
   }) {
     await actions.setRoomRef(`${state.roomName}`);
+    await actions.getRoomSnapshot();
+    actions.addMember({
+      from: 'joinRoomByName',
+      data: { id: state.sessionId, position: 'none' },
+    });
+  },
+  async addRoomToDatabase({
+    state: { rooms: state },
+    actions: { rooms: actions },
+  }) {
     actions
       .getRoomRef()
       .collection('members')
       .doc(state.sessionId)
-      .set({ user: state.userName });
-    await actions.getRoomSnapshot();
+      .set(state.members[state.sesionId]);
     console.log(`added member ${state.userName} to ${state.roomName}`);
   },
   async leaveRoom({ state: { rooms: state }, actions: { rooms: actions } }) {
-    actions.getRoomRef().collection('members').doc(state.userName).delete();
+    actions.getRoomRef().collection('members').doc(state.sessionId).delete();
   },
   async setRoomRef({ state, actions }, roomId) {
     const fb = actions.rooms.getFirebase();
@@ -187,10 +210,29 @@ const actions = {
   },
   setUserName({ state }, userName) {
     if (typeof userName === 'object') userName = userName.userName;
-
     state.rooms.userName = userName;
   },
-
+  deleteMember({ state: { rooms: state }, actions: { rooms: actions } }, id) {
+    delete state.members[id];
+  },
+  addMember(
+    { state: { rooms: state }, actions: { rooms: actions } },
+    { from, data }
+  ) {
+    state.members[data.id] = data;
+  },
+  updateMember({ state: { rooms: state }, actions: { rooms: actions } }, data) {
+    const oldData = state.members[data.id];
+    const oldConnections = oldData.connections || [];
+    const newConnections = data.connections || [];
+    state.addedConnections = newConnections.filter(
+      (x) => !oldConnections.includes(x)
+    );
+    state.removedConnections = oldConnections.filter(
+      (x) => !newConnections.includes(x)
+    );
+    state.members[data.id] = data;
+  },
   async getRoomSnapshot({
     state: { rooms: state },
     actions: { rooms: actions },
@@ -202,14 +244,15 @@ const actions = {
       .onSnapshot((snapshot) => {
         snapshot.docChanges().forEach(async (change) => {
           console.log('change');
+          let data = change.doc.data();
+          data.id = change.doc.id;
           if (change.type === 'added') {
-            let data = change.doc.data();
-            state.members[change.doc.id] = data;
-            // console.log(
-            //   `got new member: ${change.doc.id} ${JSON.stringify(data)}`
-            // );
+            actions.addMember({ from: 'snapshot', data });
+          } else if (change.type === 'modified') {
+            actions.updateMember(data);
           } else if (change.type === 'deleted') {
-            delete state.members[change.doc.id];
+            console.log('Deleting member', change.doc.id);
+            actions.deleteMember(change.doc.id);
           }
         });
       });
