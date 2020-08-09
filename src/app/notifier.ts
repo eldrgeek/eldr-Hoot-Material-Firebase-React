@@ -36,6 +36,7 @@ export const actions = {
     message
   ) {
     actions.setMessage({ message, severity: 'error' });
+    setTimeout(actions.handleClose, 4500);
   },
 };
 

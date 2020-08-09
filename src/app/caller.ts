@@ -6,7 +6,7 @@ const state = {
   connectionName: 'test',
   localStream: null,
   remoteStream: {},
-  enablePrompt: derived(state => (state.localStream ? 'Hangup' : 'Open')),
+  enablePrompt: derived((state) => (state.localStream ? 'Hangup' : 'Open')),
   connectionId: {},
   connectionRef: {},
   peerConnection: {},
@@ -71,11 +71,11 @@ const actions = {
   },
   async closeUserMedia(
     { state: { caller: state }, actions: { caller: actions } },
-    { from }
+    from
   ) {
-    const stream = actions.getLocalStream({ from });
+    const stream = actions.getLocalStream();
     const tracks = stream.getTracks();
-    tracks.forEach(track => {
+    tracks.forEach((track) => {
       track.stop();
     });
     state.localMedia = null;
@@ -112,7 +112,7 @@ const actions = {
       actions.caller
         .getRemoteStream(instance)
         .getTracks()
-        .forEach(track => track.stop());
+        .forEach((track) => track.stop());
     }
 
     if (actions.caller.getPeerConnection(instance)) {
@@ -135,7 +135,8 @@ const actions = {
     //     await candidate.ref.delete();
     //   });
     // }
-    await actions.caller.getConnectionRef(instance).delete();
+    const ref = await actions.caller.getConnectionRef(instance);
+    if (ref) ref.delete();
   },
   // async getConnectionSnapshot({ actions }) {
   //   const connectionSnapshot = await actions.caller.getConnectionRef().get();
@@ -218,8 +219,8 @@ const actions = {
     actions.caller
       .getConnectionRef(instance)
       .collection('calleeCandidates')
-      .onSnapshot(snapshot => {
-        snapshot.docChanges().forEach(async change => {
+      .onSnapshot((snapshot) => {
+        snapshot.docChanges().forEach(async (change) => {
           if (change.type === 'added') {
             let data = change.doc.data();
             if (diag)
@@ -235,7 +236,7 @@ const actions = {
   },
   setupSnapshotListener({ actions }, instance) {
     // Listening for remote session description below
-    actions.caller.getConnectionRef(instance).onSnapshot(async snapshot => {
+    actions.caller.getConnectionRef(instance).onSnapshot(async (snapshot) => {
       const data = snapshot.data();
       if (
         !actions.caller.getPeerConnection(instance).currentRemoteDescription &&
@@ -253,9 +254,9 @@ const actions = {
   setupPeerListeners({ actions }, instance) {
     actions.caller
       .getPeerConnection(instance)
-      .addEventListener('track', event => {
+      .addEventListener('track', (event) => {
         if (diag) console.log('Got remote track:', event.streams[0]);
-        event.streams[0].getTracks().forEach(track => {
+        event.streams[0].getTracks().forEach((track) => {
           if (diag) console.log('Add a track to the remoteStream:', track);
           actions.caller.getRemoteStream(instance).addTrack(track);
         });
@@ -268,7 +269,7 @@ const actions = {
 
     actions.caller
       .getPeerConnection(instance)
-      .addEventListener('icecandidate', event => {
+      .addEventListener('icecandidate', (event) => {
         if (!event.candidate) {
           // if(diag) console.log('Got final candidate!');
           return;
@@ -356,7 +357,7 @@ const actions = {
   addLocalTracks({ state, actions }, instance) {
     const peerConnection = actions.caller.getPeerConnection(instance);
     const localStream = actions.caller.getLocalStream();
-    localStream.getTracks().forEach(track => {
+    localStream.getTracks().forEach((track) => {
       peerConnection.addTrack(track, localStream);
     });
   },
@@ -380,7 +381,7 @@ const effects = {
   api: api,
 };
 
-const onInitialize = context => {
+const onInitialize = (context) => {
   if (diag) console.log('context in connection', context);
   // context.effects.streams.api.initialize(context);
   if (diag) console.log('init in connection complete');

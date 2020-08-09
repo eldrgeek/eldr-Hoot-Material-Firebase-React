@@ -22,7 +22,7 @@ export const config = {
 export let app;
 export let useApp;
 
-const mergedConfig = merge(
+export const mergedConfig = merge(
   config,
   namespaced({
     rooms,

@@ -44,7 +44,7 @@ const StreamTestPage = () => {
         count is {count}
         <video
           width={'100px'}
-          ref={el => {
+          ref={(el) => {
             console.log('Ref for local');
             if (el && !el.srcObject && state.caller.localStream) {
               console.log('Assign for local', state.caller.localStream);
@@ -56,7 +56,7 @@ const StreamTestPage = () => {
         />{' '}
         <video
           width={'100px'}
-          ref={el => {
+          ref={(el) => {
             if (el && !el.srcObject && state.caller.remoteStream[instance]) {
               console.log(
                 'Create ref to Remote',
@@ -70,9 +70,9 @@ const StreamTestPage = () => {
         <br />
         <CommonButton
           onClick={async () => {
-            // await actions.caller.hangUp();
+            await actions.caller.hangUp();
             await actions.callee.hangUp({ from, instance: 'testInstance' });
-            // actions.streams.closeUserMedia();
+            actions.streams.closeUserMedia();
           }}
           label="Leave"
         />
